@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+dist/
+build/
+out/
+
+# Environment and Logs
+.env
+.env.*
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Framework/Library specific
+.next/
+.cache/
+.vercel/
+
+# Static Assets
+public/
+*.svg
+*.png
+*.jpg
+*.ico
+
+# Configuration files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
