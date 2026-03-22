@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowLeft, Upload, Trash2, Check, Lock, Unlock } from 'lucide-react';
+import { ArrowLeft, Trash2, Check, Lock, Unlock } from 'lucide-react';
 import Link from 'next/link';
 
 import { productSchema, ProductInput } from '@/schemas/productSchema';
@@ -251,8 +251,8 @@ const ProductDetail = () => {
             </div>
           </div>
 
-          {/* Product Media Card */}
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          {/* Product Media Card - NO NEED TO USE AT THE MOMENT*/}
+          {/* <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <p className="text-sm font-semibold text-slate-700">
               Product Media
             </p>
@@ -275,7 +275,7 @@ const ProductDetail = () => {
                 </p>
               </div>
             </div>
-          </div>
+          </div> */}
 
           {/* Product Visibility Card */}
           <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
