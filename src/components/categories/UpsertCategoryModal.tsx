@@ -7,13 +7,20 @@ interface UpsertCategoryModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: CategoryFormData) => void;
+  /** When provided the modal switches to "Edit" mode */
+  initialData?: CategoryFormData;
+  isLoading?: boolean;
 }
 
 const UpsertCategoryModal: React.FC<UpsertCategoryModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
+  initialData,
+  isLoading = false,
 }) => {
+  const isEditMode = Boolean(initialData);
+
   const {
     register,
     handleSubmit,
@@ -23,29 +30,37 @@ const UpsertCategoryModal: React.FC<UpsertCategoryModalProps> = ({
     reset,
   } = useForm<CategoryFormData>({
     resolver: zodResolver(categorySchema),
+    defaultValues: initialData,
   });
 
   const nameValue = watch('name');
 
-  // Auto-generate slug from name during student practice
+  // Auto-generate slug from name (only in create mode)
   useEffect(() => {
-    if (nameValue) {
+    if (!isEditMode && nameValue) {
       const generatedSlug = nameValue
         .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '');
+        .replaceAll(/[^a-z0-9]+/g, '-')
+        .replaceAll(/(^-|-$)/g, '');
       setValue('slug', generatedSlug, { shouldValidate: true });
     }
-  }, [nameValue, setValue]);
+  }, [nameValue, setValue, isEditMode]);
+
+  // Sync form when initialData changes (e.g. clicking a different row's Edit)
+  useEffect(() => {
+    reset(initialData ?? { name: '', slug: '' });
+  }, [initialData, reset]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[999] grid h-screen w-screen place-items-center bg-slate-900/50 backdrop-blur-sm transition-opacity duration-300">
-      <div className="animate-in zoom-in-95 relative m-4 w-full max-w-[450px] rounded-xl bg-white shadow-2xl duration-200">
+    <div className="fixed inset-0 z-999 grid h-screen w-screen place-items-center bg-slate-900/50 backdrop-blur-sm transition-opacity duration-300">
+      <div className="animate-in zoom-in-95 relative m-4 w-full max-w-112.5 rounded-xl bg-white shadow-2xl duration-200">
         {/* Modal Header */}
         <header className="flex items-center justify-between border-b border-slate-100 p-6">
-          <h2 className="text-xl font-bold text-slate-800">Create Category</h2>
+          <h2 className="text-xl font-bold text-slate-800">
+            {isEditMode ? 'Edit Category' : 'Create Category'}
+          </h2>
           <button
             onClick={onClose}
             className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-600"
@@ -70,10 +85,14 @@ const UpsertCategoryModal: React.FC<UpsertCategoryModalProps> = ({
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 p-6">
           {/* Name Input */}
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-semibold text-slate-700">
+            <label
+              htmlFor="category-name"
+              className="text-sm font-semibold text-slate-700"
+            >
               Category Name
             </label>
             <input
+              id="category-name"
               {...register('name')}
               placeholder="e.g. Electronics"
               className={`w-full rounded-lg border px-3 py-2.5 transition-all outline-none ${
@@ -91,8 +110,14 @@ const UpsertCategoryModal: React.FC<UpsertCategoryModalProps> = ({
 
           {/* Slug Input (Editable) */}
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-semibold text-slate-700">Slug</label>
+            <label
+              htmlFor="category-slug"
+              className="text-sm font-semibold text-slate-700"
+            >
+              Slug
+            </label>
             <input
+              id="category-slug"
               {...register('slug')}
               placeholder="e.g. electronics"
               className={`w-full rounded-lg border px-3 py-2.5 transition-all outline-none ${
@@ -126,15 +151,38 @@ const UpsertCategoryModal: React.FC<UpsertCategoryModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="w-full rounded-lg border border-slate-300 px-6 py-2.5 font-bold text-slate-700 transition-colors hover:bg-slate-50 sm:w-auto"
+              disabled={isLoading}
+              className="w-full rounded-lg border border-slate-300 px-6 py-2.5 font-bold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 sm:w-auto"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="w-full rounded-lg bg-blue-600 px-6 py-2.5 font-bold text-white shadow-md shadow-blue-200 transition-all hover:bg-blue-700 active:scale-95 sm:flex-1"
+              disabled={isLoading}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-6 py-2.5 font-bold text-white shadow-md shadow-blue-200 transition-all hover:bg-blue-700 active:scale-95 disabled:opacity-50 sm:flex-1"
             >
-              Create Category
+              {isLoading && (
+                <svg
+                  className="h-4 w-4 animate-spin"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                  />
+                </svg>
+              )}
+              {isEditMode ? 'Save Changes' : 'Create Category'}
             </button>
           </footer>
         </form>
