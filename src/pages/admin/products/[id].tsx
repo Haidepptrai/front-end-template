@@ -2,11 +2,19 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowLeft, Trash2, Check, Lock, Unlock } from 'lucide-react';
+import { ArrowLeft, Trash2, Check, Lock, Unlock, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
 import { productSchema, ProductInput } from '@/schemas/productSchema';
-import { MOCK_PRODUCTS, Product } from '@/constants/products';
+import {
+  getProductById,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+} from '@/services/productService';
+import { getCategories } from '@/services/categoryService';
+import { GetCategoriesResponse } from '@/services/models/categoryModel';
+import { GetProductsResponse } from '@/services/models/productModel';
 
 type PageMode = 'create' | 'update' | 'view';
 
@@ -15,7 +23,13 @@ const ProductDetail = () => {
   const { id } = router.query;
 
   const [mode, setMode] = useState<PageMode>('view');
-  const [productData, setProductData] = useState<Product | null>(null);
+  const [productData, setProductData] = useState<GetProductsResponse | null>(
+    null
+  );
+  const [categories, setCategories] = useState<GetCategoriesResponse[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isMutating, setIsMutating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const {
     register,
@@ -37,6 +51,18 @@ const ProductDetail = () => {
 
   const isPublished = watch('isPublished');
 
+  useEffect(() => {
+    const fetchSelectData = async () => {
+      try {
+        const catData = await getCategories();
+        setCategories(catData);
+      } catch {
+        console.error('Failed to load categories');
+      }
+    };
+    fetchSelectData();
+  }, []);
+
   // Load product data based on ID mode
   useEffect(() => {
     if (!router.isReady) return;
@@ -56,32 +82,69 @@ const ProductDetail = () => {
 
     if (!id) return;
 
-    const foundProduct = MOCK_PRODUCTS.find((p) => p.id === Number(id));
-    if (!foundProduct) {
+    const fetchProduct = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const result = await getProductById(Number(id));
+        setProductData(result);
+        setMode('view');
+        reset({
+          name: result.name,
+          price: result.price,
+          category: result.categoryId.toString(),
+          isPublished: true, // mock
+          mediaUrl: '',
+        });
+      } catch {
+        setError('Failed to load product details.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProduct();
+  }, [id, router.isReady, reset]);
+
+  const onSubmit = async (data: ProductInput) => {
+    setIsMutating(true);
+    setError(null);
+    try {
+      const payload = {
+        name: data.name,
+        price: data.price,
+        categoryId: Number(data.category),
+      };
+
+      if (mode === 'create') {
+        await createProduct(payload);
+      } else if (productData?.id) {
+        await updateProduct(productData.id, payload);
+      }
       router.push('/admin/products');
-      return;
+    } catch {
+      setError(
+        mode === 'create'
+          ? 'Failed to create product. Please try again.'
+          : 'Failed to update product. Please try again.'
+      );
+    } finally {
+      setIsMutating(false);
     }
+  };
 
-    setProductData(foundProduct);
-    setMode('view'); // Default to view details mode
-    reset({
-      name: foundProduct.name,
-      price: foundProduct.price,
-      category: foundProduct.category,
-      isPublished: foundProduct.isPublished,
-      mediaUrl: foundProduct.mediaUrl || '',
-    });
-  }, [id, router.isReady, reset, router]);
-
-  const onSubmit = (data: ProductInput) => {
-    console.log('Submitting data:', data);
-    // Simulating save logic
-    if (mode === 'create') {
-      alert('Product created successfully (Mock)!');
-    } else {
-      alert('Product updated successfully (Mock)!');
+  const handleDelete = async () => {
+    if (!productData?.id) return;
+    if (!confirm('Are you sure you want to delete this product?')) return;
+    setIsMutating(true);
+    setError(null);
+    try {
+      await deleteProduct(productData.id);
+      router.push('/admin/products');
+    } catch {
+      setError('Failed to delete product. Please try again.');
+      setIsMutating(false);
     }
-    router.push('/admin/products');
   };
 
   const isReadOnly = mode === 'view';
@@ -145,6 +208,21 @@ const ProductDetail = () => {
             the marketplace.
           </p>
         </div>
+
+        {/* Error Banner */}
+        {error && (
+          <div className="mb-6 flex items-center justify-between rounded-r-lg border-l-4 border-red-500 bg-red-50 p-4 text-red-700">
+            <div className="flex items-center">
+              <span>{error}</span>
+            </div>
+            <button
+              onClick={() => setError(null)}
+              className="font-bold text-red-500 hover:text-red-700"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Main Info Card */}
@@ -234,12 +312,12 @@ const ProductDetail = () => {
                         : 'border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
                     }`}
                   >
-                    <option value="">Search categories...</option>
-                    <option value="Electronics">Electronics</option>
-                    <option value="Furniture">Furniture</option>
-                    <option value="Wearables">Wearables</option>
-                    <option value="Accessories">Accessories</option>
-                    <option value="Storage">Storage</option>
+                    <option value="">Select a category...</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id.toString()}>
+                        {c.name}
+                      </option>
+                    ))}
                   </select>
                   {errors.category && (
                     <span className="text-xs font-medium text-red-500">
@@ -328,9 +406,10 @@ const ProductDetail = () => {
                 </div>
                 <button
                   type="button"
-                  disabled={isReadOnly}
+                  disabled={isReadOnly || isMutating}
+                  onClick={handleDelete}
                   className={`inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600 shadow-sm transition-all ${
-                    isReadOnly
+                    isReadOnly || isMutating
                       ? 'cursor-not-allowed opacity-50'
                       : 'hover:bg-red-50 active:scale-95'
                   }`}
@@ -357,9 +436,14 @@ const ProductDetail = () => {
               </button>
               <button
                 type="submit"
-                className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-200 transition-all hover:bg-blue-700 active:scale-95"
+                disabled={isMutating}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-200 transition-all hover:bg-blue-700 active:scale-95 disabled:opacity-50"
               >
-                <Check className="h-4 w-4" />
+                {isMutating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="h-4 w-4" />
+                )}
                 {mode === 'create' ? 'Create Product' : 'Save Changes'}
               </button>
             </div>

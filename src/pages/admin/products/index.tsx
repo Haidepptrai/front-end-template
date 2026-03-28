@@ -1,25 +1,39 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Plus, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import Pagination from '@/components/Pagination';
-import { MOCK_PRODUCTS, Product } from '@/constants/products';
+import { getProducts } from '@/services/productService';
+import { GetProductsResponse } from '@/services/models/productModel';
 
 const ProductPage = () => {
-  const [products] = useState<Product[]>(MOCK_PRODUCTS);
-  const [isLoading] = useState(false); // Can be toggled if simulating load
+  const [products, setProducts] = useState<GetProductsResponse[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const pageSize = 5;
 
-  const totalItems = products.length;
-  const totalPages = Math.ceil(totalItems / pageSize);
+  const fetchProducts = useCallback(async (page: number) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const result = await getProducts({ page, pageSize });
+      setProducts(result.data);
+      setTotalPages(result.metadata.totalPages);
+      setTotalItems(result.metadata.totalItems);
+    } catch {
+      setError('Failed to load products. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [pageSize]);
 
-  // Paginated partition
-  const currentProducts = products.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
-  );
+  useEffect(() => {
+    fetchProducts(currentPage);
+  }, [fetchProducts, currentPage]);
 
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-8">
@@ -44,6 +58,21 @@ const ProductPage = () => {
           </Link>
         </div>
 
+        {/* Error Banner */}
+        {error && (
+          <div className="mb-6 flex items-center justify-between rounded-r-lg border-l-4 border-red-500 bg-red-50 p-4 text-red-700">
+            <div className="flex items-center">
+              <span>{error}</span>
+            </div>
+            <button
+              onClick={() => setError(null)}
+              className="font-bold text-red-500 hover:text-red-700"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Table Card */}
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           <table className="min-w-full divide-y divide-slate-200">
@@ -56,7 +85,10 @@ const ProductPage = () => {
                   Name
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-bold tracking-wider text-slate-500 uppercase">
-                  Slug
+                  Category
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-bold tracking-wider text-slate-500 uppercase">
+                  Price
                 </th>
                 <th className="px-6 py-4 text-right text-xs font-bold tracking-wider text-slate-500 uppercase">
                   Actions
@@ -64,10 +96,10 @@ const ProductPage = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 bg-white">
-              {/* Loading skeleton (mock logic) */}
+              {/* Loading skeleton */}
               {isLoading && (
                 <tr>
-                  <td colSpan={4} className="px-6 py-10 text-center">
+                  <td colSpan={5} className="px-6 py-10 text-center">
                     <span className="inline-flex items-center gap-2 text-sm text-slate-500">
                       <Loader2
                         className="h-4 w-4 animate-spin"
@@ -83,7 +115,7 @@ const ProductPage = () => {
               {!isLoading && products.length === 0 && (
                 <tr>
                   <td
-                    colSpan={4}
+                    colSpan={5}
                     className="px-6 py-10 text-center text-sm text-slate-400"
                   >
                     No products found. Create your first one!
@@ -93,7 +125,7 @@ const ProductPage = () => {
 
               {/* Data rows */}
               {!isLoading &&
-                currentProducts.map((product) => (
+                products.map((product) => (
                   <tr
                     key={product.id}
                     className="transition-colors hover:bg-slate-50"
@@ -106,8 +138,11 @@ const ProductPage = () => {
                     </td>
                     <td className="px-6 py-4 text-sm">
                       <span className="rounded-md bg-slate-100 px-2 py-1 font-medium text-slate-600">
-                        /{product.slug}
+                        {product.categoryName ?? '—'}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm font-semibold text-slate-900">
+                      ${product.price ? product.price.toFixed(2) : '0.00'}
                     </td>
                     <td className="px-6 py-4 text-right text-sm">
                       <div className="inline-flex items-center gap-1">
