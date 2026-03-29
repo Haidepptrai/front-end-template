@@ -1,3 +1,4 @@
+import { ApiResponse } from './common/ApiResponse';
 import httpClient from './httpClient';
 import {
   CategoryEntity,
@@ -11,9 +12,12 @@ const ENDPOINT = '/api/Category';
  * Fetch all categories.
  * GET /api/Category
  */
-export async function getCategories(): Promise<GetCategoriesResponse[]> {
+export async function getCategories(): Promise<
+  ApiResponse<GetCategoriesResponse[]>
+> {
   try {
-    const { data } = await httpClient.get<GetCategoriesResponse[]>(ENDPOINT);
+    const { data } =
+      await httpClient.get<ApiResponse<GetCategoriesResponse[]>>(ENDPOINT);
     return data;
   } catch (error) {
     console.error('[categoryService] getCategories failed:', error);
