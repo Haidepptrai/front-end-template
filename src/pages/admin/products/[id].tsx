@@ -1,8 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowLeft, Trash2, Check, Lock, Unlock, Loader2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  Trash2,
+  Check,
+  Lock,
+  Unlock,
+  Loader2,
+  Upload,
+  ImageIcon,
+} from 'lucide-react';
 import Link from 'next/link';
 
 import { productSchema, ProductInput } from '@/schemas/productSchema';
@@ -15,6 +24,7 @@ import {
 import { getCategories } from '@/services/categoryService';
 import { GetCategoriesResponse } from '@/services/models/categoryModel';
 import { GetProductsResponse } from '@/services/models/productModel';
+import Image from 'next/image';
 
 type PageMode = 'create' | 'update' | 'view';
 
@@ -29,7 +39,10 @@ const ProductDetail = () => {
   const [categories, setCategories] = useState<GetCategoriesResponse[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isMutating, setIsMutating] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
     register,
@@ -50,12 +63,13 @@ const ProductDetail = () => {
   });
 
   const isPublished = watch('isPublished');
+  const mediaUrl = watch('mediaUrl');
 
   useEffect(() => {
     const fetchSelectData = async () => {
       try {
-        const catData = await getCategories();
-        setCategories(catData);
+        const response = await getCategories();
+        setCategories(response.data);
       } catch {
         console.error('Failed to load categories');
       }
@@ -145,6 +159,30 @@ const ProductDetail = () => {
       setError('Failed to delete product. Please try again.');
       setIsMutating(false);
     }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingImage(true);
+    setError(null);
+    try {
+      const mockUploadedUrl = URL.createObjectURL(file);
+      setValue('mediaUrl', mockUploadedUrl, { shouldValidate: true });
+    } catch {
+      setError('Failed to upload image. Please try again.');
+    } finally {
+      setIsUploadingImage(false);
+      // Reset the input value so the same file can be selected again
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setValue('mediaUrl', '', { shouldValidate: true });
   };
 
   const isReadOnly = mode === 'view';
@@ -329,31 +367,94 @@ const ProductDetail = () => {
             </div>
           </div>
 
-          {/* Product Media Card - NO NEED TO USE AT THE MOMENT*/}
-          {/* <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          {/* Product Media Card */}
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <p className="text-sm font-semibold text-slate-700">
               Product Media
             </p>
-            <div
-              className={`mt-2 flex h-48 flex-col items-center justify-center rounded-xl border-2 border-dashed transition-colors ${
-                isReadOnly
-                  ? 'border-slate-200 bg-slate-50'
-                  : 'border-slate-200 bg-white hover:border-slate-400'
-              }`}
-            >
-              <div className="flex flex-col items-center gap-1 text-center">
-                <div className="rounded-full bg-slate-100 p-3 text-slate-500">
-                  <Upload className="h-6 w-6 text-blue-600" />
-                </div>
-                <p className="mt-2 text-sm font-semibold text-slate-800">
-                  Click to upload or drag and drop
-                </p>
-                <p className="text-xs text-slate-500">
-                  PNG, JPG or WEBP (MAX. 800×400px)
-                </p>
+            {mediaUrl ? (
+              <div
+                className={`group relative mt-2 flex h-48 flex-col items-center justify-center overflow-hidden rounded-xl border-2 border-slate-200 bg-slate-50 transition-colors sm:h-64`}
+              >
+                <Image
+                  src={mediaUrl}
+                  alt="Product Media"
+                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  width={500}
+                  height={500}
+                />
+                {!isReadOnly && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                    <button
+                      type="button"
+                      onClick={handleRemoveImage}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-red-700"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Remove Image
+                    </button>
+                  </div>
+                )}
               </div>
-            </div>
-          </div> */}
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isReadOnly && !isUploadingImage)
+                    fileInputRef.current?.click();
+                }}
+                className={`mt-2 flex h-48 w-full flex-col items-center justify-center rounded-xl border-2 border-dashed transition-colors sm:h-64 ${
+                  isReadOnly || isUploadingImage
+                    ? 'cursor-not-allowed border-slate-200 bg-slate-50'
+                    : 'cursor-pointer border-slate-200 bg-white hover:border-blue-400 hover:bg-blue-50'
+                }`}
+              >
+                <div className="flex flex-col items-center gap-2 text-center">
+                  {isUploadingImage ? (
+                    <>
+                      <div className="rounded-full bg-blue-100 p-3 text-blue-600">
+                        <Loader2 className="h-6 w-6 animate-spin" />
+                      </div>
+                      <p className="mt-2 text-sm font-semibold text-blue-600">
+                        Uploading image...
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="rounded-full bg-slate-100 p-3 text-slate-500 transition-colors group-hover:bg-blue-100 group-hover:text-blue-600">
+                        {isReadOnly ? (
+                          <ImageIcon className="h-6 w-6" />
+                        ) : (
+                          <Upload className="h-6 w-6 text-blue-600" />
+                        )}
+                      </div>
+                      <p className="mt-2 text-sm font-semibold text-slate-800">
+                        {isReadOnly ? 'No image available' : 'Click to upload'}
+                      </p>
+                      {!isReadOnly && (
+                        <p className="text-xs text-slate-500">
+                          PNG, JPG or WEBP (MAX. 800×400px)
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+                <input
+                  type="file"
+                  accept="image/png, image/jpeg, image/webp"
+                  className="hidden"
+                  ref={fileInputRef}
+                  onChange={handleImageUpload}
+                  disabled={isReadOnly || isUploadingImage}
+                />
+              </button>
+            )}
+            {errors.mediaUrl && (
+              <span className="mt-1 block text-xs font-medium text-red-500">
+                {errors.mediaUrl.message}
+              </span>
+            )}
+          </div>
 
           {/* Product Visibility Card */}
           <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-6 shadow-sm">

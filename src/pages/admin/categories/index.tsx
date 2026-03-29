@@ -35,8 +35,8 @@ const CategoryPage = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await getCategories();
-      setCategories(data);
+      const response = await getCategories();
+      setCategories(response.data);
     } catch {
       setError('Failed to load categories. Please try again.');
     } finally {
