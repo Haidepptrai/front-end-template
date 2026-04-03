@@ -16,20 +16,24 @@ const ProductPage = () => {
   const [totalItems, setTotalItems] = useState(0);
   const pageSize = 5;
 
-  const fetchProducts = useCallback(async (page: number) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const result = await getProducts({ page, pageSize });
-      setProducts(result.data);
-      setTotalPages(result.metadata.totalPages);
-      setTotalItems(result.metadata.totalItems);
-    } catch {
-      setError('Failed to load products. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [pageSize]);
+  const fetchProducts = useCallback(
+    async (page: number) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const result = await getProducts({ page, pageSize });
+        if (!result) return;
+        setProducts(result.data);
+        setTotalPages(result.metadata.totalPages);
+        setTotalItems(result.metadata.totalItems);
+      } catch {
+        setError('Failed to load products. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [pageSize]
+  );
 
   useEffect(() => {
     fetchProducts(currentPage);

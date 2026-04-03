@@ -60,12 +60,15 @@ const CategoryPage = () => {
   const handleEdit = async (id: number) => {
     setError(null);
     try {
-      const entity = await getCategoryById(id);
+      const response = await getCategoryById(id);
+      if (!response.data) {
+        return; // failed to load
+      }
       setEditTarget({
         id,
         formData: {
-          name: entity.name ?? '',
-          slug: entity.slug ?? '',
+          name: response.data.name ?? '',
+          slug: response.data.slug ?? '',
         },
       });
       setIsModalOpen(true);
@@ -82,16 +85,18 @@ const CategoryPage = () => {
     try {
       if (editTarget) {
         // UPDATE
-        await updateCategory(editTarget.id, {
+        const res = await updateCategory(editTarget.id, {
           id: editTarget.id,
           name: data.name,
           slug: data.slug,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         });
+        if (!res.data) return;
       } else {
         // CREATE
-        await createCategory({ name: data.name, slug: data.slug });
+        const res = await createCategory({ name: data.name, slug: data.slug });
+        if (!res.data) return;
       }
       setIsModalOpen(false);
       setEditTarget(undefined);
@@ -117,7 +122,8 @@ const CategoryPage = () => {
     setIsMutating(true);
     setError(null);
     try {
-      await deleteCategory(deleteId);
+      const res = await deleteCategory(deleteId);
+      if (res.message?.includes('Failed to delete')) return;
       setDeleteId(null);
       await fetchCategories();
     } catch {
