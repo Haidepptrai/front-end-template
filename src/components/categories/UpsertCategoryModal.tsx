@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CategoryFormData, categorySchema } from '@/schemas/categorySchema';
 
@@ -24,7 +24,7 @@ const UpsertCategoryModal: React.FC<UpsertCategoryModalProps> = ({
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     setValue,
     formState: { errors },
     reset,
@@ -33,7 +33,8 @@ const UpsertCategoryModal: React.FC<UpsertCategoryModalProps> = ({
     defaultValues: initialData,
   });
 
-  const nameValue = watch('name');
+  const nameValue = useWatch({ control, name: 'name' });
+  const slugValue = useWatch({ control, name: 'slug' });
 
   // Auto-generate slug from name (only in create mode)
   useEffect(() => {
@@ -141,7 +142,7 @@ const UpsertCategoryModal: React.FC<UpsertCategoryModalProps> = ({
             <div className="flex items-center gap-1 overflow-hidden font-mono text-sm text-slate-600">
               <span className="text-slate-400">/categories/</span>
               <span className="truncate font-bold text-blue-600">
-                {watch('slug') || '...'}
+                {slugValue || '...'}
               </span>
             </div>
           </div>

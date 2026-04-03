@@ -37,7 +37,6 @@ const ProductDetail = () => {
     null
   );
   const [categories, setCategories] = useState<GetCategoriesResponse[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [isMutating, setIsMutating] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -97,23 +96,24 @@ const ProductDetail = () => {
     if (!id) return;
 
     const fetchProduct = async () => {
-      setIsLoading(true);
       setError(null);
       try {
         const result = await getProductById(Number(id));
-        setProductData(result);
+        if (!result.data) {
+          setError('Failed to load product details.');
+          return;
+        }
+        setProductData(result.data);
         setMode('view');
         reset({
-          name: result.name,
-          price: result.price,
-          category: result.categoryId.toString(),
+          name: result.data.name,
+          price: result.data.price,
+          category: result.data.categoryId.toString(),
           isPublished: true, // mock
           mediaUrl: '',
         });
       } catch {
         setError('Failed to load product details.');
-      } finally {
-        setIsLoading(false);
       }
     };
 
@@ -131,9 +131,11 @@ const ProductDetail = () => {
       };
 
       if (mode === 'create') {
-        await createProduct(payload);
+        const res = await createProduct(payload);
+        if (!res.data) return;
       } else if (productData?.id) {
-        await updateProduct(productData.id, payload);
+        const res = await updateProduct(productData.id, payload);
+        if (!res.data) return;
       }
       router.push('/admin/products');
     } catch {
@@ -153,7 +155,8 @@ const ProductDetail = () => {
     setIsMutating(true);
     setError(null);
     try {
-      await deleteProduct(productData.id);
+      const res = await deleteProduct(productData.id);
+      if (res?.message?.includes('Failed to delete')) return;
       router.push('/admin/products');
     } catch {
       setError('Failed to delete product. Please try again.');
